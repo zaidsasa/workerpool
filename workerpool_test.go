@@ -71,7 +71,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestPool_Wait(t *testing.T) {
+func TestWorkerPool_Wait(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
