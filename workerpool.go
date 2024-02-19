@@ -8,10 +8,9 @@ import (
 )
 
 type (
-	Pool struct {
-		wg      *sync.WaitGroup
-		workers chan *worker
-
+	WorkerPool struct {
+		wg        *sync.WaitGroup
+		workers   chan *worker
 		keepAlive bool
 	}
 
@@ -27,8 +26,8 @@ var (
 	ErrContextError    = errors.New("pool context error")
 )
 
-// NewPool returns a new pool with the size and additional options.
-func NewPool(size int, opts ...Opt) (*Pool, error) {
+// New returns a new WorkerPool with the size and additional options.
+func New(size int, opts ...Opt) (*WorkerPool, error) {
 	if size < minPoolSize {
 		return nil, ErrInvalidPoolSize
 	}
@@ -38,45 +37,54 @@ func NewPool(size int, opts ...Opt) (*Pool, error) {
 		return nil, err
 	}
 
-	pool := &Pool{
+	workerpool := &WorkerPool{
 		wg:        &sync.WaitGroup{},
 		workers:   make(chan *worker, size),
 		keepAlive: poolOpts.keepAlive,
 	}
-	if pool.keepAlive {
-		pool.wg.Add(1)
-	}
 
-	return pool, nil
+	return workerpool, nil
 }
 
-func (p *Pool) Run(task Task) {
+func (wp *WorkerPool) Run(task Task) {
 	w := &worker{}
 
-	p.workers <- w // reserve a worker for the task
+	wp.workers <- w // reserve a worker for the task
 
-	p.wg.Add(1)
+	wp.wg.Add(1)
 
 	go func() {
-		defer p.wg.Done()
+		defer wp.wg.Done()
 
 		task()
 
-		<-p.workers // release a worker
+		<-wp.workers // release a worker
 	}()
 }
 
-func (p *Pool) Wait(ctx context.Context) error {
-	done := make(chan bool, 1)
+func (wp *WorkerPool) Wait(ctx context.Context) error {
+	done := make(chan struct{}, 1)
+
+	if wp.keepAlive {
+		wp.wg.Add(1)
+	}
+
 	go func() {
-		p.wg.Wait()
-		done <- true
+		wp.wg.Wait()
+		done <- struct{}{}
 	}()
 
 	select {
 	case <-done:
 		return nil
+
 	case <-ctx.Done():
+		if wp.keepAlive {
+			wp.wg.Done()
+		}
+
+		wp.wg.Wait()
+
 		return errors.Join(ErrContextError, ctx.Err())
 	}
 }

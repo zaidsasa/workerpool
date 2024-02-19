@@ -9,7 +9,7 @@ import (
 	"github.com/zaidsasa/workerpool"
 )
 
-func TestNewPool(t *testing.T) {
+func TestNew(t *testing.T) {
 	t.Parallel()
 
 	type args struct {
@@ -23,7 +23,7 @@ func TestNewPool(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "pool with size of 0",
+			name: "workerpool was created successfully with a size of 0",
 			args: args{
 				size: 0,
 				opts: nil,
@@ -31,15 +31,15 @@ func TestNewPool(t *testing.T) {
 			wantErr: workerpool.ErrInvalidPoolSize,
 		},
 		{
-			name: "pool with size of 10",
+			name: "workerpool was created successfully with a size of 10",
 			args: args{
-				size: 3,
+				size: 10,
 				opts: nil,
 			},
 			wantErr: nil,
 		},
 		{
-			name: "pool with size of 100",
+			name: "workerpool was created successfully with a size of 100",
 			args: args{
 				size: 100,
 				opts: nil,
@@ -47,7 +47,7 @@ func TestNewPool(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "pool with size of 100 and WithKeepAliveOption",
+			name: "The worker pool was created successfully with a size of 100, and the 'WithKeepAliveOption' is enabled",
 			args: args{
 				size: 100,
 				opts: []workerpool.Opt{workerpool.WithKeepAliveOption()},
@@ -60,7 +60,7 @@ func TestNewPool(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			gotPool, err := workerpool.NewPool(test.args.size, test.args.opts...)
+			gotPool, err := workerpool.New(test.args.size, test.args.opts...)
 			if test.wantErr != nil {
 				assert.ErrorIs(t, err, test.wantErr)
 			} else {
@@ -74,57 +74,36 @@ func TestNewPool(t *testing.T) {
 func TestPool_Wait(t *testing.T) {
 	t.Parallel()
 
-	type fields struct {
-		PoolOpts []workerpool.Opt
-	}
-
-	type args struct {
-		ctxFunc func() (context.Context, context.CancelFunc)
-	}
-
 	testCases := []struct {
-		name              string
-		fields            fields
-		args              args
-		wantErr           error
-		wantWaitErr       error
-		forceCancellation bool
+		name               string
+		WorkerPoolOpts     []workerpool.Opt
+		ctxFunc            func() (context.Context, context.CancelFunc)
+		wantErr            error
+		wantWaitErr        error
+		submitCancellation bool
 	}{
 		{
-			name: "wait pool with default behavior",
-			fields: fields{
-				PoolOpts: nil,
-			},
-			args: args{
-				ctxFunc: func() (context.Context, context.CancelFunc) {
-					return context.Background(), nil
-				},
+			name: "workerpool terminated gracefully when the context of type 'background' was encountered",
+			ctxFunc: func() (context.Context, context.CancelFunc) {
+				return context.Background(), nil
 			},
 		},
 		{
-			name: "wait pool with timeout context and keep alive option",
-			fields: fields{
-				PoolOpts: []workerpool.Opt{workerpool.WithKeepAliveOption()},
+			name: "workerpool terminated gracefully upon receiving a context cancellation",
+			ctxFunc: func() (context.Context, context.CancelFunc) {
+				return context.WithCancel(context.Background())
 			},
-			args: args{
-				ctxFunc: func() (context.Context, context.CancelFunc) {
-					return context.WithTimeout(context.Background(), 1*time.Second)
-				},
+			submitCancellation: true,
+			wantWaitErr:        context.Canceled,
+		},
+		{
+			name: "workerpool with the 'WithKeepAliveOption' option enabled terminated gracefully when the context timed out",
+
+			WorkerPoolOpts: []workerpool.Opt{workerpool.WithKeepAliveOption()},
+			ctxFunc: func() (context.Context, context.CancelFunc) {
+				return context.WithTimeout(context.Background(), 2*time.Second)
 			},
 			wantWaitErr: context.DeadlineExceeded,
-		},
-		{
-			name: "wait pool with cancel context",
-			fields: fields{
-				PoolOpts: nil,
-			},
-			args: args{
-				ctxFunc: func() (context.Context, context.CancelFunc) {
-					return context.WithCancel(context.Background())
-				},
-			},
-			forceCancellation: true,
-			wantWaitErr:       context.Canceled,
 		},
 	}
 
@@ -132,7 +111,7 @@ func TestPool_Wait(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			pool, err := workerpool.NewPool(10, test.fields.PoolOpts...)
+			pool, err := workerpool.New(10, test.WorkerPoolOpts...)
 			if test.wantErr != nil {
 				assert.ErrorIs(t, err, test.wantErr)
 			} else {
@@ -140,9 +119,9 @@ func TestPool_Wait(t *testing.T) {
 				assert.NotNil(t, pool)
 			}
 
-			ctx, cancel := test.args.ctxFunc()
+			ctx, cancel := test.ctxFunc()
 			if cancel != nil {
-				if test.forceCancellation {
+				if test.submitCancellation {
 					cancel()
 				} else {
 					defer cancel()
@@ -172,9 +151,7 @@ func TestPool_Wait(t *testing.T) {
 				expectedResp = append(expectedResp, rsp)
 			}
 
-			if !test.forceCancellation {
-				assert.ElementsMatch(t, expectedResp, requests)
-			}
+			assert.ElementsMatch(t, expectedResp, requests)
 		})
 	}
 }
