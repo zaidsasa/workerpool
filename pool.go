@@ -2,12 +2,12 @@ package workerpool
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 )
 
 type (
-	worker struct{}
-
 	Pool struct {
 		wg      *sync.WaitGroup
 		workers chan *worker
@@ -16,26 +16,38 @@ type (
 	}
 
 	Task func()
+
+	worker struct{}
 )
 
-// NewPool returns a new pool with the size and addtional options.
+const minPoolSize = 1
+
+var (
+	ErrInvalidPoolSize = fmt.Errorf("pool size must be bigger or equal to %d", minPoolSize)
+	ErrContextError    = errors.New("pool context error")
+)
+
+// NewPool returns a new pool with the size and additional options.
 func NewPool(size int, opts ...Opt) (*Pool, error) {
+	if size < minPoolSize {
+		return nil, ErrInvalidPoolSize
+	}
+
 	poolOpts, err := parseOpts(opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	p := &Pool{
+	pool := &Pool{
 		wg:        &sync.WaitGroup{},
 		workers:   make(chan *worker, size),
 		keepAlive: poolOpts.keepAlive,
 	}
-
-	if p.keepAlive {
-		p.wg.Add(1)
+	if pool.keepAlive {
+		pool.wg.Add(1)
 	}
 
-	return p, nil
+	return pool, nil
 }
 
 func (p *Pool) Run(task Task) {
@@ -65,6 +77,6 @@ func (p *Pool) Wait(ctx context.Context) error {
 	case <-done:
 		return nil
 	case <-ctx.Done():
-		return ctx.Err()
+		return errors.Join(ErrContextError, ctx.Err())
 	}
 }
