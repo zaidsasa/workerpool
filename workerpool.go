@@ -42,7 +42,7 @@ func New(size int, opts ...Opt) (*WorkerPool, error) {
 	return workerpool, nil
 }
 
-func (wp *WorkerPool) Run(task Task) {
+func (wp *WorkerPool) Submit(task Task) {
 	w := &worker{}
 
 	wp.workers <- w // reserve a worker for the task
