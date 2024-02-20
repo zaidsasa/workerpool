@@ -23,12 +23,12 @@ func TestNew(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "workerpool was created successfully with a size of 0",
+			name: "workerpool creation failed with a size of 0.",
 			args: args{
 				size: 0,
 				opts: nil,
 			},
-			wantErr: workerpool.ErrInvalidPoolSize,
+			wantErr: workerpool.ErrInvalidSize,
 		},
 		{
 			name: "workerpool was created successfully with a size of 10",

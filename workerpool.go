@@ -2,7 +2,6 @@ package workerpool
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 )
@@ -19,17 +18,14 @@ type (
 	worker struct{}
 )
 
-const minPoolSize = 1
+const minSize = 1
 
-var (
-	ErrInvalidPoolSize = fmt.Errorf("pool size must be bigger or equal to %d", minPoolSize)
-	ErrContextError    = errors.New("pool context error")
-)
+var ErrInvalidSize = fmt.Errorf("size must be bigger or equal to %d", minSize)
 
 // New returns a new WorkerPool with the size and additional options.
 func New(size int, opts ...Opt) (*WorkerPool, error) {
-	if size < minPoolSize {
-		return nil, ErrInvalidPoolSize
+	if size < minSize {
+		return nil, ErrInvalidSize
 	}
 
 	poolOpts, err := parseOpts(opts...)
@@ -85,6 +81,6 @@ func (wp *WorkerPool) Wait(ctx context.Context) error {
 
 		wp.wg.Wait()
 
-		return errors.Join(ErrContextError, ctx.Err())
+		return fmt.Errorf("wait exited: %w", ctx.Err())
 	}
 }
