@@ -60,7 +60,9 @@ func TestNew(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+
 			gotPool, err := workerpool.New(test.args.size, test.args.opts...)
+
 			if test.wantErr != nil {
 				assert.ErrorIs(t, err, test.wantErr)
 			} else {
@@ -111,7 +113,9 @@ func TestWorkerPool_Wait(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+
 			pool, err := workerpool.New(10, test.WorkerPoolOpts...)
+
 			if test.wantErr != nil {
 				assert.ErrorIs(t, err, test.wantErr)
 			} else {
@@ -130,8 +134,10 @@ func TestWorkerPool_Wait(t *testing.T) {
 
 			requests := []string{"alpha", "beta", "gamma", "delta", "epsilon"}
 			responseChan := make(chan string, len(requests))
+
 			for _, r := range requests {
 				r := r
+
 				pool.Run(func() {
 					time.Sleep(1 * time.Second)
 					responseChan <- r
@@ -146,7 +152,9 @@ func TestWorkerPool_Wait(t *testing.T) {
 			}
 
 			close(responseChan)
+
 			expectedResp := []string{}
+
 			for rsp := range responseChan {
 				expectedResp = append(expectedResp, rsp)
 			}
