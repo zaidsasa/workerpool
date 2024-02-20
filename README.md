@@ -5,3 +5,15 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/zaidsasa/workerpool/blob/main/LICENSE)
 
 Concurrency limiting goroutine pool
+
+## Supported go versions
+
+We currently support the most recent major Go versions from 1.21 onward.
+
+## Contributing
+
+Please feel free to submit issues, fork the repository and send pull requests!
+
+## License
+
+This project is licensed under the terms of the MIT license.
