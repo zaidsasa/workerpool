@@ -138,7 +138,7 @@ func TestWorkerPool_Wait(t *testing.T) {
 			for _, r := range requests {
 				r := r
 
-				pool.Run(func() {
+				pool.Submit(func() {
 					time.Sleep(1 * time.Second)
 					responseChan <- r
 				})
