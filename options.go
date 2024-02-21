@@ -1,25 +1,38 @@
 package workerpool
 
 type (
-	opts struct {
-		keepAlive bool
+	options struct {
+		keepAlive     bool
+		taskQueueSize int32
 	}
 
-	Opt func(*opts) error
+	Option func(*options) error
 )
 
-// WithKeepAliveOption keeps the worker pool alive even without having tasks to run.
-func WithKeepAliveOption() Opt {
-	return func(opts *opts) error {
-		opts.keepAlive = true
+const defaultTaskQueueSize = 100
+
+// WithKeepAliveOption keeps the worker pool alive even without having tasks to run (default = false).
+func WithKeepAliveOption(keepAlive bool) Option {
+	return func(opts *options) error {
+		opts.keepAlive = keepAlive
 
 		return nil
 	}
 }
 
-func parseOpts(poolOpts ...Opt) (*opts, error) {
-	opts := &opts{
-		keepAlive: false,
+// WithTaskQueueSizeOption sets the task queue size (default = 100).
+func WithTaskQueueSizeOption(size int32) Option {
+	return func(opts *options) error {
+		opts.taskQueueSize = size
+
+		return nil
+	}
+}
+
+func parseOpts(poolOpts ...Option) (*options, error) {
+	opts := &options{
+		keepAlive:     false,
+		taskQueueSize: defaultTaskQueueSize,
 	}
 	for _, opt := range poolOpts {
 		if err := opt(opts); err != nil {

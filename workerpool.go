@@ -10,6 +10,7 @@ type (
 	WorkerPool struct {
 		wg        *sync.WaitGroup
 		workers   chan *worker
+		taskQueue chan Task
 		keepAlive bool
 	}
 
@@ -20,10 +21,10 @@ type (
 
 const minSize = 1
 
-var ErrInvalidSize = fmt.Errorf("size must be bigger or equal to %d", minSize)
+var ErrInvalidSize = fmt.Errorf("size must be greater than or equal to %q", minSize)
 
 // New returns a new WorkerPool with the size and additional options.
-func New(size int, opts ...Opt) (*WorkerPool, error) {
+func New(size int, opts ...Option) (*WorkerPool, error) {
 	if size < minSize {
 		return nil, ErrInvalidSize
 	}
@@ -36,26 +37,36 @@ func New(size int, opts ...Opt) (*WorkerPool, error) {
 	workerpool := &WorkerPool{
 		wg:        &sync.WaitGroup{},
 		workers:   make(chan *worker, size),
+		taskQueue: make(chan Task, poolOpts.taskQueueSize),
 		keepAlive: poolOpts.keepAlive,
 	}
+
+	go workerpool.dispatch()
 
 	return workerpool, nil
 }
 
+func (wp *WorkerPool) dispatch() {
+	for {
+		task := <-wp.taskQueue
+
+		w := &worker{}
+
+		wp.workers <- w // reserve a worker for the task
+
+		go func() {
+			defer wp.wg.Done()
+
+			task()
+
+			<-wp.workers // release a worker
+		}()
+	}
+}
+
 func (wp *WorkerPool) Submit(task Task) {
-	w := &worker{}
-
-	wp.workers <- w // reserve a worker for the task
-
 	wp.wg.Add(1)
-
-	go func() {
-		defer wp.wg.Done()
-
-		task()
-
-		<-wp.workers // release a worker
-	}()
+	wp.taskQueue <- task
 }
 
 func (wp *WorkerPool) Wait(ctx context.Context) error {
