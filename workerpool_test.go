@@ -13,8 +13,8 @@ func TestNew(t *testing.T) {
 	t.Parallel()
 
 	type args struct {
-		size int
-		opts []workerpool.Opt
+		size    int
+		options []workerpool.Option
 	}
 
 	testCases := []struct {
@@ -26,7 +26,6 @@ func TestNew(t *testing.T) {
 			name: "workerpool creation failed with a size of 0.",
 			args: args{
 				size: 0,
-				opts: nil,
 			},
 			wantErr: workerpool.ErrInvalidSize,
 		},
@@ -34,7 +33,6 @@ func TestNew(t *testing.T) {
 			name: "workerpool was created successfully with a size of 10",
 			args: args{
 				size: 10,
-				opts: nil,
 			},
 			wantErr: nil,
 		},
@@ -42,15 +40,14 @@ func TestNew(t *testing.T) {
 			name: "workerpool was created successfully with a size of 100",
 			args: args{
 				size: 100,
-				opts: nil,
 			},
 			wantErr: nil,
 		},
 		{
 			name: "The worker pool was created successfully with a size of 100, and the 'WithKeepAliveOption' is enabled",
 			args: args{
-				size: 100,
-				opts: []workerpool.Opt{workerpool.WithKeepAliveOption()},
+				size:    100,
+				options: []workerpool.Option{workerpool.WithKeepAliveOption(true)},
 			},
 			wantErr: nil,
 		},
@@ -61,7 +58,7 @@ func TestNew(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			gotPool, err := workerpool.New(test.args.size, test.args.opts...)
+			gotPool, err := workerpool.New(test.args.size, test.args.options...)
 
 			if test.wantErr != nil {
 				assert.ErrorIs(t, err, test.wantErr)
@@ -78,7 +75,7 @@ func TestWorkerPool_Wait(t *testing.T) {
 
 	testCases := []struct {
 		name               string
-		WorkerPoolOpts     []workerpool.Opt
+		WorkerPoolOptions  []workerpool.Option
 		ctxFunc            func() (context.Context, context.CancelFunc)
 		wantErr            error
 		wantWaitErr        error
@@ -86,6 +83,14 @@ func TestWorkerPool_Wait(t *testing.T) {
 	}{
 		{
 			name: "workerpool terminated gracefully when the context of type 'background' was encountered",
+			ctxFunc: func() (context.Context, context.CancelFunc) {
+				return context.Background(), nil
+			},
+		},
+		{
+			name: "workerpool with the 'WithTaskQueueSizeOption' option enabled terminated gracefully",
+
+			WorkerPoolOptions: []workerpool.Option{workerpool.WithTaskQueueSizeOption(1)},
 			ctxFunc: func() (context.Context, context.CancelFunc) {
 				return context.Background(), nil
 			},
@@ -101,7 +106,7 @@ func TestWorkerPool_Wait(t *testing.T) {
 		{
 			name: "workerpool with the 'WithKeepAliveOption' option enabled terminated gracefully when the context timed out",
 
-			WorkerPoolOpts: []workerpool.Opt{workerpool.WithKeepAliveOption()},
+			WorkerPoolOptions: []workerpool.Option{workerpool.WithKeepAliveOption(true)},
 			ctxFunc: func() (context.Context, context.CancelFunc) {
 				return context.WithTimeout(context.Background(), 2*time.Second)
 			},
@@ -114,7 +119,7 @@ func TestWorkerPool_Wait(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			pool, err := workerpool.New(10, test.WorkerPoolOpts...)
+			pool, err := workerpool.New(10, test.WorkerPoolOptions...)
 
 			if test.wantErr != nil {
 				assert.ErrorIs(t, err, test.wantErr)
