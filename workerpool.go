@@ -46,24 +46,7 @@ func New(size int, opts ...Option) (*WorkerPool, error) {
 	return workerpool, nil
 }
 
-func (wp *WorkerPool) dispatch() {
-	for {
-		task := <-wp.taskQueue
-
-		w := &worker{}
-
-		wp.workers <- w // reserve a worker for the task
-
-		go func() {
-			defer wp.wg.Done()
-
-			task()
-
-			<-wp.workers // release a worker
-		}()
-	}
-}
-
+// Submit queues a task for execution by the next available worker.
 func (wp *WorkerPool) Submit(task Task) {
 	wp.wg.Add(1)
 	wp.taskQueue <- task
@@ -93,5 +76,23 @@ func (wp *WorkerPool) Wait(ctx context.Context) error {
 		wp.wg.Wait()
 
 		return fmt.Errorf("wait exited: %w", ctx.Err())
+	}
+}
+
+func (wp *WorkerPool) dispatch() {
+	for {
+		task := <-wp.taskQueue
+
+		w := &worker{}
+
+		wp.workers <- w // reserve a worker for the task
+
+		go func() {
+			defer wp.wg.Done()
+
+			task()
+
+			<-wp.workers // release a worker
+		}()
 	}
 }
