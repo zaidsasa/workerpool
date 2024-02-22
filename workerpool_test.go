@@ -13,7 +13,7 @@ func TestNew(t *testing.T) {
 	t.Parallel()
 
 	type args struct {
-		size    int
+		size    uint32
 		options []workerpool.Option
 	}
 
