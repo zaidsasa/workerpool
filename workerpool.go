@@ -61,6 +61,8 @@ func (wp *WorkerPool) Wait(ctx context.Context) error {
 
 	go func() {
 		wp.wg.Wait()
+		wp.finalize()
+
 		done <- struct{}{}
 	}()
 
@@ -74,23 +76,29 @@ func (wp *WorkerPool) Wait(ctx context.Context) error {
 		}
 
 		wp.wg.Wait()
+		wp.finalize()
 
 		return fmt.Errorf("wait exited: %w", ctx.Err())
 	}
 }
 
+// TODO: dispatch should recive a stopSignal to exit.
 func (wp *WorkerPool) dispatch() {
 	for {
-		task := <-wp.taskQueue
-
 		wp.workers <- worker{} // reserve a worker for the task
 
 		go func() {
-			defer wp.wg.Done()
-
-			task()
+			for task := range wp.taskQueue {
+				task()
+				wp.wg.Done()
+			}
 
 			<-wp.workers // release a worker
 		}()
 	}
+}
+
+func (wp *WorkerPool) finalize() {
+	// close(wp.taskQueue)
+	// close(wp.workers)
 }
