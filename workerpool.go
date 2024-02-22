@@ -9,7 +9,7 @@ import (
 type (
 	WorkerPool struct {
 		wg        *sync.WaitGroup
-		workers   chan *worker
+		workers   chan worker
 		taskQueue chan Task
 		keepAlive bool
 	}
@@ -24,7 +24,7 @@ const minSize = 1
 var ErrInvalidSize = fmt.Errorf("size must be greater than or equal to %q", minSize)
 
 // New returns a new WorkerPool with the size and additional options.
-func New(size int, opts ...Option) (*WorkerPool, error) {
+func New(size uint32, opts ...Option) (*WorkerPool, error) {
 	if size < minSize {
 		return nil, ErrInvalidSize
 	}
@@ -36,7 +36,7 @@ func New(size int, opts ...Option) (*WorkerPool, error) {
 
 	workerpool := &WorkerPool{
 		wg:        &sync.WaitGroup{},
-		workers:   make(chan *worker, size),
+		workers:   make(chan worker, size),
 		taskQueue: make(chan Task, poolOpts.taskQueueSize),
 		keepAlive: poolOpts.keepAlive,
 	}
@@ -83,9 +83,7 @@ func (wp *WorkerPool) dispatch() {
 	for {
 		task := <-wp.taskQueue
 
-		w := &worker{}
-
-		wp.workers <- w // reserve a worker for the task
+		wp.workers <- worker{} // reserve a worker for the task
 
 		go func() {
 			defer wp.wg.Done()
