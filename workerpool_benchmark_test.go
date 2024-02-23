@@ -15,9 +15,7 @@ func BenchmarkWorkerPool(b *testing.B) {
 	wPool, _ := workerpool.New(poolSize)
 
 	for i := 0; i < b.N; i++ {
-		for j := 0; j < 100; j++ {
-			wPool.Submit(stubFunc)
-		}
+		wPool.Submit(stubFunc)
 	}
 
 	_ = wPool.Wait(context.Background())
