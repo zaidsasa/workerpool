@@ -1,11 +1,7 @@
 package workerpool
 
-import "sync"
-
 type (
 	slotPool struct {
-		lock     sync.RWMutex
-		isClosed bool
 		slotChan chan slot
 	}
 
@@ -14,22 +10,12 @@ type (
 
 func newSlotPool(size uint32) *slotPool {
 	return &slotPool{
-		lock:     sync.RWMutex{},
 		slotChan: make(chan slot, size),
 	}
 }
 
-func (sp *slotPool) reserve() bool {
-	sp.lock.RLock()
-	defer sp.lock.RUnlock()
-
-	if sp.isClosed {
-		return false
-	}
-
+func (sp *slotPool) acquire() {
 	sp.slotChan <- slot{}
-
-	return true
 }
 
 func (sp *slotPool) release() {
@@ -37,10 +23,5 @@ func (sp *slotPool) release() {
 }
 
 func (sp *slotPool) close() {
-	sp.lock.Lock()
-	defer sp.lock.Unlock()
-
-	sp.isClosed = true
-
 	close(sp.slotChan)
 }

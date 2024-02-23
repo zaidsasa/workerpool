@@ -9,6 +9,7 @@ import (
 type (
 	WorkerPool struct {
 		wg        *sync.WaitGroup
+		stopChan  chan struct{}
 		slots     *slotPool
 		taskQueue chan Task
 		keepAlive bool
@@ -35,6 +36,7 @@ func New(size uint32, opts ...Option) (*WorkerPool, error) {
 	workerpool := &WorkerPool{
 		wg:        &sync.WaitGroup{},
 		slots:     newSlotPool(size),
+		stopChan:  make(chan struct{}, 1),
 		taskQueue: make(chan Task, poolOpts.taskQueueSize),
 		keepAlive: poolOpts.keepAlive,
 	}
@@ -67,7 +69,6 @@ func (wp *WorkerPool) Wait(ctx context.Context) error {
 
 	select {
 	case <-done:
-
 	case <-ctx.Done():
 		if wp.keepAlive {
 			wp.wg.Done()
@@ -83,17 +84,23 @@ func (wp *WorkerPool) Wait(ctx context.Context) error {
 
 func (wp *WorkerPool) dispatch() {
 	for {
-		if ok := wp.slots.reserve(); !ok {
-			return
-		}
+		select {
+		case <-wp.stopChan:
+			wp.slots.close()
 
-		go worker(wp.slots, wp.taskQueue, wp.wg)
+			return
+		default:
+			wp.slots.acquire()
+
+			go worker(wp.slots, wp.taskQueue, wp.wg)
+		}
 	}
 }
 
 func (wp *WorkerPool) finalize() {
 	close(wp.taskQueue)
-	wp.slots.close()
+
+	wp.stopChan <- struct{}{}
 }
 
 func worker(slots *slotPool, taskQueue <-chan Task, waitGroup *sync.WaitGroup) {
