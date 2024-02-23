@@ -9,14 +9,12 @@ import (
 type (
 	WorkerPool struct {
 		wg        *sync.WaitGroup
-		workers   chan worker
+		slots     *slotPool
 		taskQueue chan Task
 		keepAlive bool
 	}
 
 	Task func()
-
-	worker struct{}
 )
 
 const minSize = 1
@@ -36,7 +34,7 @@ func New(size uint32, opts ...Option) (*WorkerPool, error) {
 
 	workerpool := &WorkerPool{
 		wg:        &sync.WaitGroup{},
-		workers:   make(chan worker, size),
+		slots:     newSlotPool(size),
 		taskQueue: make(chan Task, poolOpts.taskQueueSize),
 		keepAlive: poolOpts.keepAlive,
 	}
@@ -53,6 +51,8 @@ func (wp *WorkerPool) Submit(task Task) {
 }
 
 func (wp *WorkerPool) Wait(ctx context.Context) error {
+	defer wp.finalize()
+
 	done := make(chan struct{}, 1)
 
 	if wp.keepAlive {
@@ -61,14 +61,12 @@ func (wp *WorkerPool) Wait(ctx context.Context) error {
 
 	go func() {
 		wp.wg.Wait()
-		wp.finalize()
 
 		done <- struct{}{}
 	}()
 
 	select {
 	case <-done:
-		return nil
 
 	case <-ctx.Done():
 		if wp.keepAlive {
@@ -76,29 +74,39 @@ func (wp *WorkerPool) Wait(ctx context.Context) error {
 		}
 
 		wp.wg.Wait()
-		wp.finalize()
 
 		return fmt.Errorf("wait exited: %w", ctx.Err())
 	}
+
+	return nil
 }
 
-// TODO: dispatch should recive a stopSignal to exit.
 func (wp *WorkerPool) dispatch() {
 	for {
-		wp.workers <- worker{} // reserve a worker for the task
+		if ok := wp.slots.reserve(); !ok {
+			return
+		}
 
-		go func() {
-			for task := range wp.taskQueue {
-				task()
-				wp.wg.Done()
-			}
-
-			<-wp.workers // release a worker
-		}()
+		go worker(wp.slots, wp.taskQueue, wp.wg)
 	}
 }
 
 func (wp *WorkerPool) finalize() {
-	// close(wp.taskQueue)
-	// close(wp.workers)
+	close(wp.taskQueue)
+	wp.slots.close()
+}
+
+func worker(slots *slotPool, taskQueue chan Task, waitGroup *sync.WaitGroup) {
+	for {
+		task, ok := <-taskQueue
+
+		if !ok {
+			slots.release()
+
+			return
+		}
+
+		task()
+		waitGroup.Done()
+	}
 }
