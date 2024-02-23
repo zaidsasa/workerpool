@@ -96,7 +96,7 @@ func (wp *WorkerPool) finalize() {
 	wp.slots.close()
 }
 
-func worker(slots *slotPool, taskQueue chan Task, waitGroup *sync.WaitGroup) {
+func worker(slots *slotPool, taskQueue <-chan Task, waitGroup *sync.WaitGroup) {
 	for {
 		task, ok := <-taskQueue
 
