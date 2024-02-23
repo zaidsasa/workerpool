@@ -4,7 +4,7 @@ import "sync"
 
 type (
 	slotPool struct {
-		lock     *sync.RWMutex
+		lock     sync.RWMutex
 		isClosed bool
 		slotChan chan slot
 	}
@@ -14,7 +14,7 @@ type (
 
 func newSlotPool(size uint32) *slotPool {
 	return &slotPool{
-		lock:     &sync.RWMutex{},
+		lock:     sync.RWMutex{},
 		slotChan: make(chan slot, size),
 	}
 }
