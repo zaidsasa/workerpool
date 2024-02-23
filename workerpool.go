@@ -9,14 +9,12 @@ import (
 type (
 	WorkerPool struct {
 		wg        *sync.WaitGroup
-		workers   chan *worker
+		slots     *slotPool
 		taskQueue chan Task
 		keepAlive bool
 	}
 
 	Task func()
-
-	worker struct{}
 )
 
 const minSize = 1
@@ -24,7 +22,7 @@ const minSize = 1
 var ErrInvalidSize = fmt.Errorf("size must be greater than or equal to %q", minSize)
 
 // New returns a new WorkerPool with the size and additional options.
-func New(size int, opts ...Option) (*WorkerPool, error) {
+func New(size uint32, opts ...Option) (*WorkerPool, error) {
 	if size < minSize {
 		return nil, ErrInvalidSize
 	}
@@ -36,7 +34,7 @@ func New(size int, opts ...Option) (*WorkerPool, error) {
 
 	workerpool := &WorkerPool{
 		wg:        &sync.WaitGroup{},
-		workers:   make(chan *worker, size),
+		slots:     newSlotPool(size),
 		taskQueue: make(chan Task, poolOpts.taskQueueSize),
 		keepAlive: poolOpts.keepAlive,
 	}
@@ -53,6 +51,8 @@ func (wp *WorkerPool) Submit(task Task) {
 }
 
 func (wp *WorkerPool) Wait(ctx context.Context) error {
+	defer wp.finalize()
+
 	done := make(chan struct{}, 1)
 
 	if wp.keepAlive {
@@ -61,12 +61,12 @@ func (wp *WorkerPool) Wait(ctx context.Context) error {
 
 	go func() {
 		wp.wg.Wait()
+
 		done <- struct{}{}
 	}()
 
 	select {
 	case <-done:
-		return nil
 
 	case <-ctx.Done():
 		if wp.keepAlive {
@@ -77,22 +77,36 @@ func (wp *WorkerPool) Wait(ctx context.Context) error {
 
 		return fmt.Errorf("wait exited: %w", ctx.Err())
 	}
+
+	return nil
 }
 
 func (wp *WorkerPool) dispatch() {
 	for {
-		task := <-wp.taskQueue
+		if ok := wp.slots.reserve(); !ok {
+			return
+		}
 
-		w := &worker{}
+		go worker(wp.slots, wp.taskQueue, wp.wg)
+	}
+}
 
-		wp.workers <- w // reserve a worker for the task
+func (wp *WorkerPool) finalize() {
+	close(wp.taskQueue)
+	wp.slots.close()
+}
 
-		go func() {
-			defer wp.wg.Done()
+func worker(slots *slotPool, taskQueue <-chan Task, waitGroup *sync.WaitGroup) {
+	for {
+		task, ok := <-taskQueue
 
-			task()
+		if !ok {
+			slots.release()
 
-			<-wp.workers // release a worker
-		}()
+			return
+		}
+
+		task()
+		waitGroup.Done()
 	}
 }

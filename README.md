@@ -32,3 +32,16 @@ BenchmarkWorkerPool-8              10000            553632 ns/op           24006
 PASS
 ok      github.com/zaidsasa/workerpool  7.797s
 ```
+
+### [PR-13](https://github.com/zaidsasa/workerpool/pull/13)
+
+```
+➜  workerpool git:(reduce-memory-alloc) go test -bench . -benchtime=5s -benchmem
+goos: darwin
+goarch: amd64
+pkg: github.com/zaidsasa/workerpool
+cpu: Intel(R) Core(TM) i7-4870HQ CPU @ 2.50GHz
+BenchmarkWorkerPool-8              27015            209963 ns/op               0 B/op          0 allocs/op
+PASS
+ok      github.com/zaidsasa/workerpool  10.122s
+```
