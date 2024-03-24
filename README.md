@@ -32,8 +32,8 @@ goos: darwin
 goarch: amd64
 pkg: github.com/zaidsasa/workerpool
 cpu: Intel(R) Core(TM) i7-4870HQ CPU @ 2.50GHz
-BenchmarkGoroutines-8                  3         378402626 ns/op        96671141 B/op    2006650 allocs/op
-BenchmarkWorkerPool-8                  2         614498656 ns/op         5455824 B/op      80200 allocs/op
+BenchmarkGoroutines-8   	       3	 395232765 ns/op	98106917 B/op	 2015184 allocs/op
+BenchmarkWorkerPool-8   	       4	 308275120 ns/op	 3776014 B/op	   54226 allocs/op
 PASS
-ok      github.com/zaidsasa/workerpool  4.485s
+ok  	github.com/zaidsasa/workerpool	5.122s
 ```

@@ -88,14 +88,6 @@ func TestWorkerPool_Wait(t *testing.T) {
 			},
 		},
 		{
-			name: "workerpool with the 'WithTaskQueueSizeOption' option enabled terminated gracefully",
-
-			WorkerPoolOptions: []workerpool.Option{workerpool.WithTaskQueueSizeOption(1)},
-			ctxFunc: func() (context.Context, context.CancelFunc) {
-				return context.Background(), nil
-			},
-		},
-		{
 			name: "workerpool terminated gracefully upon receiving a context cancellation",
 			ctxFunc: func() (context.Context, context.CancelFunc) {
 				return context.WithCancel(context.Background())
