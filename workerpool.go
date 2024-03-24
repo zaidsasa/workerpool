@@ -18,7 +18,10 @@ type (
 	Task func()
 )
 
-const minSize = 1
+const (
+	minSize         = 1
+	taskQueueFactor = 10
+)
 
 var ErrInvalidSize = fmt.Errorf("size must be greater than or equal to %q", minSize)
 
@@ -37,7 +40,7 @@ func New(size uint32, opts ...Option) (*WorkerPool, error) {
 		wg:        &sync.WaitGroup{},
 		slots:     newSlotPool(size),
 		stopChan:  make(chan struct{}, 1),
-		taskQueue: make(chan Task, poolOpts.taskQueueSize),
+		taskQueue: make(chan Task, size*taskQueueFactor),
 		keepAlive: poolOpts.keepAlive,
 	}
 
@@ -92,7 +95,13 @@ func (wp *WorkerPool) dispatch() {
 		default:
 			wp.slots.acquire()
 
-			go worker(wp.slots, wp.taskQueue, wp.wg)
+			worker := worker{
+				wg:        wp.wg,
+				taskQueue: wp.taskQueue,
+				slots:     wp.slots,
+			}
+
+			worker.run()
 		}
 	}
 }
@@ -101,19 +110,4 @@ func (wp *WorkerPool) finalize() {
 	close(wp.taskQueue)
 
 	wp.stopChan <- struct{}{}
-}
-
-func worker(slots *slotPool, taskQueue <-chan Task, waitGroup *sync.WaitGroup) {
-	for {
-		task, ok := <-taskQueue
-
-		if !ok {
-			slots.release()
-
-			return
-		}
-
-		task()
-		waitGroup.Done()
-	}
 }
