@@ -5,7 +5,7 @@ import "sync"
 type worker struct {
 	wg        *sync.WaitGroup
 	taskQueue chan Task
-	slots     *slotPool
+	semaphore *semaphore
 }
 
 func (w *worker) run() {
@@ -14,7 +14,7 @@ func (w *worker) run() {
 			task, ok := <-w.taskQueue
 
 			if !ok {
-				w.slots.release()
+				w.semaphore.release()
 
 				return
 			}
