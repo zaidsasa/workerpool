@@ -10,7 +10,7 @@ type (
 	WorkerPool struct {
 		wg        *sync.WaitGroup
 		stopChan  chan struct{}
-		slots     *slotPool
+		semaphore *semaphore
 		taskQueue chan Task
 		keepAlive bool
 	}
@@ -38,7 +38,7 @@ func New(size uint32, opts ...Option) (*WorkerPool, error) {
 
 	workerpool := &WorkerPool{
 		wg:        &sync.WaitGroup{},
-		slots:     newSlotPool(size),
+		semaphore: newSemaphore(size),
 		stopChan:  make(chan struct{}, 1),
 		taskQueue: make(chan Task, size*taskQueueFactor),
 		keepAlive: poolOpts.keepAlive,
@@ -89,16 +89,16 @@ func (wp *WorkerPool) dispatch() {
 	for {
 		select {
 		case <-wp.stopChan:
-			wp.slots.close()
+			wp.semaphore.close()
 
 			return
 		default:
-			wp.slots.acquire()
+			wp.semaphore.acquire()
 
 			worker := worker{
 				wg:        wp.wg,
 				taskQueue: wp.taskQueue,
-				slots:     wp.slots,
+				semaphore: wp.semaphore,
 			}
 
 			worker.run()
